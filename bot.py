@@ -1,9 +1,10 @@
 ######### THIS ROBOT IS FOR EDUCATIONAL PURPOSES #########
 
-import webdriver
+from selenium import webdriver
 import time
-import urllib
+import urllib2
 import os
+import os.path
 
 class Bot:
     def __init__(self, toSearch):
@@ -11,6 +12,7 @@ class Bot:
         self.driver = webdriver.Firefox()
         url = "https://www.google.com.br/search?hl=pt-PT&site=imghp&tbm=isch&q=" + toSearch
         self.driver.get(url)
+        self.imgList = []
 
     # Let's browse the entire page first to load all the images and avoid getting stuck on "more results" button
     # When the document.body.scrollHeight stop changing is because we reached all the results
@@ -32,25 +34,34 @@ class Bot:
         return
 
     def createFile(self, rawData, imgCount, type):
+        if rawData is None:
+            return
+
         if not os.path.exists(self.imgFolder):
             os.makedirs(self.imgFolder)
 
         if not os.path.exists(self.imgFolder + "/" + type):
             os.makedirs(self.imgFolder + "/" + type)
 
-        if rawData is None:
-            print("Stopped")
-        if rawData is not None:
-            if 'base64' in rawData:
-                dataArray = rawData.split(",")
-                data = dataArray[1].decode('base64')
-            else:
-                data = urllib.urlopen(rawData).read()
-
         imgName = self.imgFolder + "/" + type + "/" + str(imgCount).zfill(7) + ".jpg"
+
+        #decoded in base64
+        if 'base64' in rawData:
+            dataArray = rawData.split(",")
+            data = dataArray[1].decode('base64')
+        else:
+            try:
+                data = urllib2.urlopen(rawData, timeout=10).read()
+            except urllib2.URLError, e:
+                print("Something wrong happened trying to download the image")
+                print(e)
+                return
+
         fd = open(imgName, 'wb')
         fd.write(data)
         fd.close()
+        self.imgList.append(rawData)
+        print("Img Saved " + rawData)
 
     def saveThumbImages(self):
         elements = self.driver.find_elements_by_class_name("ivg-i")
@@ -66,26 +77,35 @@ class Bot:
 
     def saveBigImages(self):
         elements = self.driver.find_elements_by_class_name("ivg-i")
-        imgCount = 0
-        prevImg = None
-        srcFullImg = None
+        self.imgList = []
 
         for element in elements:
             # Click on the image to open the panel
             element.click()
-            wrapperElements = self.driver.find_element_by_class_name("irc_mi")
-            srcFullImg = wrapperElements.get_attribute("src")
-            # Hack to avoid saving the same image
-            if srcFullImg is not None and srcFullImg != prevImg:
-                self.createFile(srcFullImg, imgCount, 'fullImg')
-                imgCount += 1
-                prevImg = srcFullImg
+            wrapperElements = self.driver.find_elements_by_class_name("irc_mi")
+            for item in wrapperElements:
+                srcFullImg = item.get_attribute("src")
+                if srcFullImg is None:
+                    continue
+                # Hack to avoid saving the same image
+                if srcFullImg not in self.imgList:
+                    self.createFile(srcFullImg, len(self.imgList), 'fullImg')
+
         self.driver.close()
+        self.saveImgList(self.imgList)
+
+    def saveImgList(self, imgList):
+        imgListFile = self.imgFolder + "list.txt"
+        fd = open(imgListFile, 'a+')
+
+        for idx, img in enumerate(imgList):
+            fd.write(str(idx) + " " + str(img) + "\n")
+        fd.close()
 
 # Create the object and pass what you wanna search as a parameter
-bot = Bot("car")
+bot = Bot("prato arroz e feijao")
 bot.fetchAllImages()
 # Save thumbnails only
-bot.saveThumbImages()
+#bot.saveThumbImages()
 # Save the image from the host, it means the image may have better resolution
 bot.saveBigImages()
