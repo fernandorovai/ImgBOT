@@ -24,7 +24,7 @@ class Bot:
         while lastHeight < currentHeight:
             lastHeight = self.driver.execute_script("return document.body.scrollHeight")
             self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(3)
+            time.sleep(1)
             currentHeight = self.driver.execute_script("return document.body.scrollHeight")
             style = moreButton.get_attribute("style")
             # We found the "more results" button, let's be polite and click on it =)
@@ -82,6 +82,7 @@ class Bot:
         for element in elements:
             # Click on the image to open the panel
             element.click()
+            time.sleep(2)
             wrapperElements = self.driver.find_elements_by_class_name("irc_mi")
             for item in wrapperElements:
                 srcFullImg = item.get_attribute("src")
@@ -103,7 +104,8 @@ class Bot:
         fd.close()
 
 # Create the object and pass what you wanna search as a parameter
-bot = Bot("prato arroz e feijao")
+keyword = raw_input("What are you looking for? ")
+bot = Bot(keyword)
 bot.fetchAllImages()
 # Save thumbnails only
 #bot.saveThumbImages()
